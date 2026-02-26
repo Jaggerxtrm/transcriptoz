@@ -1,0 +1,5 @@
+whisperx
+torch>=2.0.0
+pyannote.audio
+pathlib
+logging 
