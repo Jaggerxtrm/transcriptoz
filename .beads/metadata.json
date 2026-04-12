@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "transcriptoz",
+  "project_id": "8fe977aa-2343-45bf-96b2-d27e93be6887"
+}
