@@ -55,82 +55,6 @@ def get_package_version(package_name):
         return version(package_name)
     except PackageNotFoundError:
         return None
-
-def verify_huggingface_access():
-    """Verifica l'accesso ai modelli di Hugging Face"""
-    try:
-        from huggingface_hub import HfApi
-        from pyannote.audio import Pipeline
-        import torch
-        
-        # Verifica versioni
-        pyannote_version = get_package_version('pyannote.audio')
-        torch_version = get_package_version('torch')
-        
-        logger.info(f"📦 Versioni rilevate:")
-        logger.info(f"   - pyannote.audio: {pyannote_version}")
-        logger.info(f"   - torch: {torch_version}")
-        
-        hf_token = os.environ.get('HUGGINGFACE_TOKEN')
-        if not hf_token:
-            logger.error("❌ Token Hugging Face non trovato nelle variabili d'ambiente")
-            return False
-            
-        # Verifica token
-        try:
-            api = HfApi()
-            user = api.whoami(token=hf_token)
-            logger.info(f"✅ Autenticato come: {user['name']}")
-        except Exception as e:
-            logger.error(f"❌ Errore di autenticazione token: {str(e)}")
-            return False
-        
-        # Verifica accesso ai modelli con gestione versioni
-        try:
-            logger.info("🔄 Inizializzazione pipeline di diarizzazione...")
-            
-            # In pyannote.audio 3.x, non abbiamo bisogno di inizializzare separatamente
-            # il modello di segmentazione, è incluso nella pipeline di diarizzazione
-            pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization",
-                use_auth_token=hf_token
-            )
-            
-            # Verifica che la pipeline sia stata inizializzata correttamente
-            if not pipeline or not hasattr(pipeline, 'instantiate'):
-                raise ValueError("Pipeline non inizializzata correttamente")
-            
-            # Verifica che la pipeline possa essere istanziata
-            try:
-                pipeline.instantiate({
-                    "segmentation": {"min_duration_off": 0.0},
-                    "clustering": {"min_clusters": 1}
-                })
-                logger.info("✅ Pipeline di diarizzazione verificata e funzionante")
-            except Exception as e:
-                logger.warning(f"⚠️ Avviso durante l'istanziazione della pipeline: {str(e)}")
-                # Continuiamo comunque perché alcuni warning sono normali
-                
-            return True
-            
-        except Exception as e:
-            if "Model was trained with" in str(e):
-                # Se l'errore è solo di versione, possiamo procedere
-                logger.warning("⚠️ Avviso di compatibilità versioni - Il modello funzionerà comunque")
-                return True
-            else:
-                logger.error(f"❌ Errore accesso modelli: {str(e)}")
-                logger.error("💡 Dettagli errore:")
-                logger.error(f"   - Tipo errore: {type(e).__name__}")
-                logger.error(f"   - Messaggio: {str(e)}")
-                if hasattr(e, '__cause__') and e.__cause__:
-                    logger.error(f"   - Causa: {str(e.__cause__)}")
-                return False
-        
-    except Exception as e:
-        logger.error(f"❌ Errore generale: {str(e)}")
-        return False
-
 def check_system_requirements():
     """Verifica tutti i requisiti di sistema"""
     requirements = {
@@ -191,52 +115,6 @@ def check_cuda():
     else:
         logger.info("⚠️ CUDA non disponibile, usando CPU")
         return False
-
-def check_huggingface_token():
-    """Verifica se il token di Hugging Face è configurato e valido"""
-    hf_token = os.environ.get('HUGGINGFACE_TOKEN')
-    if not hf_token:
-        logger.warning("\n⚠️ Token Hugging Face non trovato!")
-        print("\nPer usare la diarizzazione (identificazione parlanti), segui questi passaggi:")
-        print("1. Crea un account su https://huggingface.co/")
-        print("2. Vai su https://huggingface.co/settings/tokens")
-        print("3. Crea un nuovo token (Access Token)")
-        print("4. IMPORTANTE: Accetta i termini per ENTRAMBI i modelli:")
-        print("   - https://huggingface.co/pyannote/speaker-diarization")
-        print("   - https://huggingface.co/pyannote/segmentation")
-        print("\nPer configurare globalmente:")
-        print("Powershell (utente corrente):")
-        print("[System.Environment]::SetEnvironmentVariable('HUGGINGFACE_TOKEN', 'tuo_token', 'User')")
-        
-        token = input("\nInserisci il token ora (o premi Enter per continuare senza diarizzazione): ").strip()
-        if token:
-            os.environ['HUGGINGFACE_TOKEN'] = token
-            # Verifica il token
-            try:
-                from huggingface_hub import HfApi
-                api = HfApi()
-                api.whoami(token=token)
-                return True
-            except Exception as e:
-                logger.error(f"\n❌ Errore di autenticazione: {str(e)}")
-                print("\n⚠️ Token non valido o problemi di connessione.")
-                return False
-        return False
-    
-    # Verifica il token esistente
-    try:
-        from huggingface_hub import HfApi
-        api = HfApi()
-        api.whoami(token=hf_token)
-        return True
-    except Exception as e:
-        logger.error(f"\n❌ Errore di autenticazione con il token esistente: {str(e)}")
-        print("\n⚠️ Token non valido o problemi di connessione.")
-        print("Rimuovi il token esistente con:")
-        print("[System.Environment]::SetEnvironmentVariable('HUGGINGFACE_TOKEN', $null, 'User')")
-        print("E riavvia lo script per inserire un nuovo token.")
-        return False
-
 def select_compute_type():
     """Guida l'utente nella selezione del tipo di computazione"""
     print("\n🔧 Seleziona il tipo di computazione:")
