@@ -2,3 +2,19 @@
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+.specialists/jobs/
+.specialists/ready/
+.specialists/db/*.db
+.specialists/db/*.db-wal
+.specialists/db/*.db-shm
+# bd worktree
+.worktrees/transcriptoz-tvs/transcriptoz-tvs-specialists-creator/
+# bd worktree
+.worktrees/transcriptoz-fhb/transcriptoz-fhb-transcriber/
+# bd worktree
+.worktrees/transcriptoz-e3v/transcriptoz-e3v-transcriber/
+# bd worktree
+.worktrees/transcriptoz-b1q/transcriptoz-b1q-transcriber/
+# bd worktree
+.worktrees/transcriptoz-noh/transcriptoz-noh-transcriber/

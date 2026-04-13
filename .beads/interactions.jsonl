@@ -1,0 +1,5 @@
+{"id":"int-bf2d6df5","kind":"tool_call","created_at":"2026-04-13T09:32:27.780048128Z","actor":"you@example.com","issue_id":"transcriptoz-tvs","model":"anthropic/claude-sonnet-4-6","tool_name":"specialists-creator","exit_code":0}
+{"id":"int-54ec5333","kind":"tool_call","created_at":"2026-04-13T10:03:19.548178546Z","actor":"you@example.com","issue_id":"transcriptoz-e3v","model":"dashscope/qwen3.5-plus","tool_name":"transcriber","exit_code":0}
+{"id":"int-c90c0fa9","kind":"tool_call","created_at":"2026-04-13T10:03:52.262232643Z","actor":"you@example.com","issue_id":"transcriptoz-fhb","model":"dashscope/qwen3.5-plus","tool_name":"transcriber","exit_code":0}
+{"id":"int-13dc9e60","kind":"tool_call","created_at":"2026-04-13T10:31:49.11870398Z","actor":"you@example.com","issue_id":"transcriptoz-noh","model":"dashscope/qwen3.5-plus","tool_name":"transcriber","exit_code":0}
+{"id":"int-9e19ed86","kind":"tool_call","created_at":"2026-04-13T10:32:32.904622366Z","actor":"you@example.com","issue_id":"transcriptoz-b1q","model":"dashscope/qwen3.5-plus","tool_name":"transcriber","exit_code":0}
