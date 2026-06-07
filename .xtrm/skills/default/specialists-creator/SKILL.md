@@ -5,13 +5,29 @@ description: >
   agent through writing a valid `.specialist.json`, choosing supported models,
   validating against the schema, and avoiding common specialist authoring
   mistakes.
-version: 1.1
-synced_at: 236ca5e6
+version: 1.3
+synced_at: 78a7883e
 ---
 
 # Specialist Author Guide
 
 > Source of truth: `src/specialist/schema.ts` | Runtime: `src/specialist/runner.ts`
+
+
+## Canonical References
+
+When a custom specialist needs a standard rule or skill, reference the canonical asset by name instead of copying its file into the repo. Runtime/package fallback resolves canonical mandatory rules and skills when no project-local override exists.
+
+Example:
+
+```json
+{
+  "mandatory_rules": { "template_sets": ["serena-cheatsheet"] },
+  "skills": { "paths": ["releasing"] }
+}
+```
+
+Only create project-local copies when intentionally changing canonical behavior. After setting references, run `sp config show <name> --resolved` to verify the resolved runtime surface.
 
 ---
 
@@ -40,6 +56,7 @@ Model tiers:
 Rules:
 - Always pick the **highest version** in a family (`claude-sonnet-4-6` not `4-5`, `gemini-3.1-pro-preview` not `gemini-2.5-pro`)
 - `model` and `fallback_model` must be **different providers**
+- If a specialist needs a longer fallback chain, keep first fallback in `fallback_model` and let runtime supply any extra retry tier.
 - Never write a model string you have not pinged in this session
 
 ---
@@ -162,6 +179,10 @@ specialists models  # confirm assignments look balanced
 
 ---
 
+## Canonical references
+
+Reference any canonical skill or rule by name; runtime finds it.
+
 ## Quick Start: Scaffold + `sp edit`
 
 ```bash
@@ -169,7 +190,7 @@ specialists models  # confirm assignments look balanced
 node config/skills/specialists-creator/scripts/scaffold-specialist.ts config/specialists/my-specialist.specialist.json
 
 # 2. Apply a preset for common model/thinking defaults (optional but preferred)
-sp edit my-specialist --preset standard
+sp edit my-specialist --preset medium
 
 # 3. Set individual fields via dot.path (primary mutation workflow)
 sp edit my-specialist specialist.metadata.name my-specialist
@@ -177,6 +198,8 @@ sp edit my-specialist specialist.metadata.version 1.0.0
 sp edit my-specialist specialist.execution.model anthropic/claude-sonnet-4-6
 sp edit my-specialist specialist.execution.fallback_model google-gemini-cli/gemini-3.1-pro-preview
 sp edit my-specialist specialist.execution.permission_required READ_ONLY
+sp edit my-specialist specialist.execution.extensions.serena false
+sp edit my-specialist specialist.execution.extensions.gitnexus false
 
 # 4. Use --file only for multiline prompt fields
 sp edit my-specialist specialist.prompt.system --file .tmp/system.prompt.txt
@@ -186,7 +209,7 @@ sp edit my-specialist specialist.prompt.task_template --file .tmp/task-template.
 sp view my-specialist
 
 # 6. Validate schema
-bun skills/specialist-author/scripts/validate-specialist.ts config/specialists/my-specialist.specialist.json
+bun config/skills/specialists-creator/scripts/validate-specialist.ts config/specialists/my-specialist.specialist.json
 ```
 
 ---
@@ -199,19 +222,47 @@ bun skills/specialist-author/scripts/validate-specialist.ts config/specialists/m
 |-------|------|----------|-------|
 | `name` | string | yes | kebab-case: `[a-z][a-z0-9-]*` |
 | `version` | string | yes | semver: `1.0.0` |
-| `description` | string | yes | One sentence |
+| `description` | string | yes | Routing summary surfaced by `specialists list`; see Description writing below |
 | `category` | string | yes | Free text (e.g. `workflow`, `analysis`, `codegen`) |
 | `author` | string | no | Optional |
 | `created` | string | no | Optional date |
 | `updated` | string | no | Optional date, quote it: `"2026-03-22"` |
 | `tags` | string[] | no | Optional list |
 
+
+### Description writing for `specialists list`
+
+`specialist.metadata.description` is the routing surface that orchestrators see in `specialists list`. Write it as an operational role definition, not marketing copy. Keep the first clause distinctive because list output may truncate.
+
+A good description answers, in this order:
+
+1. **Choose when** — the task shape that should route here.
+2. **Do not choose when** — adjacent roles that should win instead.
+3. **Distinctive capability** — what this specialist does that others do not.
+4. **Permission/risk note** — READ_ONLY/LOW/MEDIUM/HIGH implication when it affects orchestration.
+
+Pattern:
+
+```text
+<role noun>. Use for <specific task shape>. Not for <near misses>; use <better roles>. <permission/workflow distinction>.
+```
+
+Examples:
+
+```text
+Scoped implementation only. Use when requirements, files/symbols, constraints, and validation are clear. Not diagnosis, planning, review, tests, release, or research. HIGH worktree.
+
+Debug symptoms/errors/regressions first. Use when cause is unknown or tests fail unexpectedly; traces, fixes targeted code, and verifies. HIGH keep-alive.
+```
+
+Avoid vague descriptions like "general purpose assistant" or "helps with code". Those cause orchestrators to overuse familiar specialists instead of routing to debugger, test-runner, researcher, sync-docs, or other sharper roles.
+
 ### `specialist.execution` (required)
 
 | Field | Type | Default | Notes |
 |-------|------|---------|-------|
 | `model` | string | — | required — ping before using |
-| `fallback_model` | string | — | must be a different provider |
+| `fallback_model` | string | — | first fallback only; runtime may append more tiers |
 | `mode` | enum | `auto` | `tool` \| `skill` \| `auto` |
 | `timeout_ms` | number | `120000` | ms |
 | `stall_timeout_ms` | number | — | kill if no event for N ms |
@@ -220,6 +271,8 @@ bun skills/specialist-author/scripts/validate-specialist.ts config/specialists/m
 | `output_type` | enum | `custom` | `codegen` \| `analysis` \| `review` \| `synthesis` \| `orchestration` \| `workflow` \| `research` \| `custom` |
 | `permission_required` | enum | `READ_ONLY` | see tier table below |
 | `thinking_level` | enum | — | `off` \| `minimal` \| `low` \| `medium` \| `high` \| `xhigh` |
+| `extensions.serena` | boolean | `true` | set `false` to opt out of Serena extension injection for this specialist |
+| `extensions.gitnexus` | boolean | `true` | set `false` to opt out of GitNexus extension injection for this specialist |
 
 **When to use `execution.interactive`**
 
@@ -230,16 +283,96 @@ bun skills/specialist-author/scripts/validate-specialist.ts config/specialists/m
   - MCP `start_specialist`: `keep_alive` enables, `no_keep_alive` disables.
 - Effective precedence: explicit disable (`--no-keep-alive` / `no_keep_alive`) → explicit enable (`--keep-alive` / `keep_alive`) → `execution.interactive` → one-shot default.
 
-**Permission tiers** — controls which pi tools are available:
+**Permission tiers** — controls the *native* pi tools the specialist gets. The full resolved tool set also includes catalog-defined GitNexus and Serena tools per tier; see [docs/manifest.md](../../../docs/manifest.md) for the complete picture.
 
-| Level | pi --tools | Use when |
-|-------|-----------|----------|
-| `READ_ONLY` | `read,grep,find,ls` | Read-only analysis, no bash |
-| `LOW` | `+bash` | Inspect/run commands, no file edits |
-| `MEDIUM` | `+edit` | Can edit existing files |
-| `HIGH` | `+write` | Full access — can create new files |
+| Level | Native tools (cumulative) | Use when |
+|-------|---------------------------|----------|
+| `READ_ONLY` | `read, grep, find, ls` | Read-only analysis, no bash |
+| `LOW` | `+ bash` | Inspect/run commands, no file edits |
+| `MEDIUM` | `+ edit` | Can edit existing files |
+| `HIGH` | `+ write` | Full access — can create new files |
+
+After choosing a tier, verify the resolved tool list before dispatching:
+
+```bash
+sp config show <name> --resolved
+```
 
 **Common pitfall:** `READ_WRITE` is **not** a valid value — use `LOW` or higher.
+
+### Per-specialist `permissions[<TIER>]` override (rarely needed)
+
+Most specialists use the catalog default deny baseline. **Do not declare an override unless this specialist's policy genuinely diverges from its tier.** When you do override, remember the specialist block replaces catalog defaults for that tier.
+
+If divergence is real, add a top-level `permissions` block (sibling to `execution`):
+
+```jsonc
+{
+  "specialist": {
+    "execution": { "permission_required": "READ_ONLY" },
+    "permissions": {
+      "READ_ONLY": {
+        "denied_natives_when_extension": ["grep", "find", "ls"],
+        "denied_natives_mode": "hard"
+      }
+    }
+  }
+}
+```
+
+| Field | Type | Default | Effect |
+|-------|------|---------|--------|
+| `denied_natives_when_extension` | `string[]` | `[]` | Native tools to deny only when a replacement extension is healthy. Catalog defaults apply first; specialist override replaces them for that tier. |
+| `denied_natives_mode` | `"soft"` \| `"hard"` | `"soft"` | `soft` keeps the tool with a preference hint; `hard` removes it (with auto-restore if the extension degrades) |
+
+The override block can only *deny* natives — it cannot add new tools beyond the catalog tier. To add tools, change the tier or update the catalog file.
+
+**Decision rule when authoring:**
+1. Pick the lowest tier that satisfies the specialist's actual capability needs.
+2. Run `sp config show <name> --resolved` and inspect the `--tools` line.
+3. If the tools are right, you're done — no override needed.
+4. If a native tool is genuinely worse than an extension equivalent for this specialist's task, declare a soft-deny first to observe behavior, then promote to hard-deny once you trust it.
+
+See [docs/manifest.md](../../../docs/manifest.md) for full deny-mode semantics, extension health gating, and the canonical explorer example.
+
+**Per-specialist extension opt-out**
+
+Use `execution.extensions` only when this specialist must suppress default extension injection.
+Both flags default to `true`, so omit this block unless opt-out is required.
+
+```json
+{
+  "specialist": {
+    "execution": {
+      "extensions": {
+        "serena": false,
+        "gitnexus": false
+      }
+    }
+  }
+}
+```
+
+Typical use cases:
+- `serena: false` for specialists that must avoid Serena tool/LSP injection
+- `gitnexus: false` for specialists that should not receive GitNexus graph tooling
+- set both `false` for constrained runs that need clean extension surface
+
+### Bare specialists
+
+Use `execution.bare: true` for non-coding LLM transforms that need a fresh canvas: research synthesis, document analysis, summarization, extraction, translation, or other tasks where specialist runtime framing adds noise instead of help.
+
+Bare mode disables all package-runner prompt injection beyond rendered `prompt.system` and `prompt.task_template`: Specialist Run Context, Output Style, GitNexus mandate, `STATIC_WORKFLOW_RULES_BLOCK`, memory injection, GitNexus pre-query snapshot, reviewer patch retrieval, output contract, and task-side mandatory rules / reviewer diff context.
+
+`execution.bare` is orthogonal to `prompt.system_prompt_mode`. Set `bare: true` without `system_prompt_mode: "replace"` when you want to keep pi's coding-agent base prompt but skip specialist runtime injections.
+
+Copy bare template from installed npm package, not repo clone:
+
+```bash
+cp "$(node -p \"require.resolve('@jaggerxtrm/specialists/package.json').replace(/package\\.json$/, '')\")config/specialists/bare.specialist.json" ".specialists/user/<your-name>.specialist.json"
+```
+
+Warning: bare mode bypasses `mandatory_rules` completely — template sets, inline rules, and global disables all skip runtime injection in bare runs.
 
 ### `specialist.prompt` (required)
 
@@ -247,9 +380,12 @@ bun skills/specialist-author/scripts/validate-specialist.ts config/specialists/m
 |-------|------|----------|-------|
 | `task_template` | string | yes | Template string with `$variable` substitution |
 | `system` | string | no | System prompt / agents.md content |
+| `system_prompt_mode` | enum | no | `append` \| `replace` — see [System Prompt Mode](#system-prompt-mode) |
 | `skill_inherit` | string | no | Single skill folder/file injected via `pi --skill` (Agent Forge compat) |
 | `output_schema` | object | no | JSON schema for structured output — injected into system prompt by runner; post-run validation is warn-only |
 | `examples` | array | no | Few-shot examples |
+
+> **Replace mode warning:** `replace` removes pi's coding-agent base prompt. Teach every command, tool, convention, output format, and behavior explicitly in `prompt.system`; nothing implicit remains.
 
 **Output contract precedence (runner-injected):** `response_format` → `output_type` → `output_schema`.
 
@@ -279,6 +415,24 @@ bun skills/specialist-author/scripts/validate-specialist.ts config/specialists/m
 **`output_schema` guidance**: Add when output must be machine-readable by downstream consumers (beads notes, feed, orchestrators). The schema is injected into the system prompt and validated post-run with warn-only behavior (never hard-fail in v1).
 
 **Mandatory markdown+schema rule:** if `response_format: markdown` and `output_schema` is present, the output must include `## Machine-readable block` containing exactly one JSON object in a single ` ```json ` fenced block. That JSON object is canonical and must match the schema.
+
+### System Prompt Mode
+
+`prompt.system_prompt_mode` controls whether `prompt.system` replaces or appends to pi's base prompt.
+
+| Runner | Default when field absent | `append` sees | `replace` sees |
+|--------|---------------------------|---------------|----------------|
+| Package-class (`sp run` → `runner.ts` → `session.ts`) | `append` | pi coding-agent base prompt + specialist `agentsMd` | only specialist `agentsMd` |
+| Script-class (`sp script` / `sp serve` → `script-runner.ts`) | `replace` | only specialist `prompt.system` | only specialist `prompt.system` |
+
+| Combination | Agent sees |
+|-------------|------------|
+| Package × append | pi coding-agent base prompt + specialist `agentsMd` |
+| Package × replace | only specialist `agentsMd` |
+| Script × append | pi coding-agent base prompt + specialist `prompt.system` |
+| Script × replace | only specialist `prompt.system` |
+
+> **Replace mode warning:** use `replace` only when you intend to author full prompt surface yourself. No coding-agent defaults survive; teach commands, tools, conventions, output contract, and behavior explicitly. Best fit: non-coding transforms where base prompt adds noise.
 
 Standard schemas by specialist type (shown as the `output_schema` object value):
 
@@ -324,6 +478,48 @@ planner — epic result:
 }
 ```
 
+### `specialist.mandatory_rules` (optional)
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `template_sets` | string[] | `[]` | Adds rule-set ids from `config/mandatory-rules/index.json` and local overlays |
+| `disable_default_globals` | boolean | `false` | Suppresses only inline `STATIC_WORKFLOW_RULES_BLOCK` (`Beads Workflow Quick Rules`) |
+| `inline_rules` | `MandatoryRule[]` | `[]` | Inline rules appended without file lookup |
+
+Runtime layering:
+
+1. `config/mandatory-rules/index.json.required_template_sets` — always loaded
+2. `config/mandatory-rules/index.json.default_template_sets` — also always loaded today; current quirk, not suppressed by `disable_default_globals`
+3. `specialist.mandatory_rules.template_sets`
+4. `specialist.mandatory_rules.inline_rules`
+
+`disable_default_globals` only removes the inline `STATIC_WORKFLOW_RULES_BLOCK`. It does **not** suppress index-driven sets. True user-rules-only runs need both `disable_default_globals: true` and a user overlay index in `.specialists/user/mandatory-rules/index.json` that clears required/default sets.
+
+Canonical set ids in `config/mandatory-rules/*.md`:
+`bead-id-verbatim`, `changelog-conventions`, `changelog-keeper-scope`, `code-quality-defaults`, `core-session-boundary`, `diagnose-loop`, `executor-delivery`, `explorer-readonly`, `git-workflow-safe`, `gitnexus-required`, `overthinker-4phase`, `per-turn-handoff-schema`, `research-tool-routing`, `researcher-source-discipline`, `reviewer-verdict-format`, `security-review-defaults`, `serena-cheatsheet`, `sync-docs-scope-discipline`, `test-runner-execution-scope`.
+
+Minimal user-rules-only spec:
+
+```json
+{
+  "specialist": {
+    "mandatory_rules": {
+      "disable_default_globals": true,
+      "inline_rules": [
+        { "id": "user-rule-1", "level": "error", "text": "Use local policy only." },
+        { "id": "user-rule-2", "level": "warn", "text": "Prefer repo overlay index.", "when": "overlay exists" }
+      ]
+    }
+  }
+}
+```
+
+Inline rule shape:
+
+```json
+{ "id": "rule-id", "level": "error", "text": "Rule text", "when": "optional condition" }
+```
+
 ### `specialist.skills` (optional)
 
 ```json
@@ -356,8 +552,6 @@ planner — epic result:
 
 `run` accepts either a **file path** (`./scripts/foo.sh`, `~/scripts/foo.sh`) or a **shell command** (`bd ready`, `git status`). Pre-run validation checks that file paths exist and shell commands are on `PATH`. Shebang typos (e.g. `pytho` instead of `python`) are caught and reported as errors before the session starts.
 
-`path` is accepted as a deprecated alias for `run`.
-
 ### `specialist.capabilities` (optional)
 
 Informational declarations used by pre-run validation and future tooling (e.g. `specialists doctor`).
@@ -381,28 +575,34 @@ Informational declarations used by pre-run validation and future tooling (e.g. `
 }
 ```
 
-Writes the final session output to this file path after the session completes. Relative to the working directory.
+When set, the specialist writes its **handoff block** to this file on every substantive turn — foreground and `--background`. The content is identical to what is appended to the input bead notes and shown by `sp result`: a markdown heading, the verbatim specialist output, and an italic metadata footer.
 
-### `specialist.communication` (optional)
+- **No env flag required.** `output_file` is honored whenever it is set (since unitAI-f58ma). It does NOT require `SPECIALISTS_JOB_FILE_OUTPUT` — that flag now only gates the debug file-mirrors (events.jsonl / status.json / result.txt).
+- **Single writer.** In a supervised run (`sp run`) the supervisor owns the file and the runner's own write is suppressed, so the file is never double-written. (In script/serve runs there is no supervisor; the runner writes the raw output instead of the enveloped block.)
+- **Format is the rendered handoff block, not bare output.** A downstream specialist that consumes this file as input will see the header/footer envelope around the body.
+- **Append vs overwrite is controlled by `notes_mode`** (see below): `full-trail` appends each turn; `final-only` overwrites with just the final `[FINAL · DONE]` block.
+- **Gitignore the path** if you don't want it committed — specs with `output_file` always write, so add the path (e.g. `.specialists/*-result.md`) to `.gitignore`.
+
+Relative paths resolve from the working directory.
+
+### `specialist.notes_mode`
+
+Controls how per-turn handoff output is persisted to BOTH the input bead notes and `output_file`.
+
+| Value | Behavior |
+|---|---|
+| `"full-trail"` (default) | Append every substantive turn. Bead notes / `output_file` accumulate `### … [turn N · WAITING]` blocks, ending with a final `## … [FINAL · DONE]` block. Best for keep-alive specialists where the operator wants the full trail. |
+| `"final-only"` | Persist only the single canonical `## … [FINAL · DONE]` block; intermediate turns are skipped and `output_file` is OVERWRITTEN (not appended). Best for non-coding / chained pipelines where the next specialist reads the previous specialist's bead note or `output_file` as its input and only wants the final result. |
+
+Empty turns are never persisted. The handoff block is markdown-native (heading + verbatim body + one italic metadata footer); the model string is normalized (provider prefix stripped, e.g. `nano-gpt/moonshotai/kimi-k2.5` renders as `kimi-k2.5`).
 
 ```json
-{
-  "communication": {
-    "next_specialists": "planner"
-  }
-}
+{ "notes_mode": "final-only" }
 ```
 
-Or as an array:
-```json
-{
-  "communication": {
-    "next_specialists": ["planner", "test-runner"]
-  }
-}
-```
+### Handoff / pipeline output recipe
 
-`next_specialists` declares which specialist(s) should receive this specialist's output as `$previous_result`. Chaining is executed by the caller (e.g. `run_parallel` pipeline) — this field is declarative metadata.
+For a non-coding pipeline where each specialist reads the previous one's result, set `output_file` to a known path AND `notes_mode: "final-only"` so the file (and the bead note) holds exactly the final result, overwritten each run — clean for the next specialist to consume. For a human-monitored keep-alive specialist, leave `notes_mode: "full-trail"` (default) so the operator sees every turn accumulate. `output_file` needs no env flag; just gitignore its path.
 
 ### `specialist.validation` (optional)
 
@@ -480,7 +680,7 @@ Files listed under `skills.paths` are read and appended to the system prompt at 
 {
   "skills": {
     "paths": [
-      "skills/specialist-author/SKILL.md",
+      ".xtrm/skills/active/specialists-creator/SKILL.md",
       ".claude/agents.md"
     ]
   }
@@ -575,9 +775,6 @@ Scripts run **locally** (not inside the agent session):
     "capabilities": {
       "required_tools": ["bash", "read"],
       "external_commands": ["git"]
-    },
-    "communication": {
-      "next_specialists": ["sync-docs"]
     },
     "output_file": ".specialists/review.md",
     "beads_integration": "auto"
@@ -681,7 +878,7 @@ pi --model <provider>/<fallback-model-id> --print "ping"   # must return "pong"
 node config/skills/specialists-creator/scripts/scaffold-specialist.ts config/specialists/my-specialist.specialist.json
 
 # 3. Mutate with sp edit (dot.path + presets)
-sp edit my-specialist --preset standard
+sp edit my-specialist --preset medium
 sp edit my-specialist specialist.execution.model <provider>/<primary-model-id>
 sp edit my-specialist specialist.execution.fallback_model <provider>/<fallback-model-id>
 
@@ -693,7 +890,7 @@ sp edit my-specialist specialist.prompt.task_template --file .tmp/task-template.
 sp view my-specialist
 
 # 6. Validate schema with the bundled helper
-bun skills/specialist-author/scripts/validate-specialist.ts config/specialists/my-specialist.specialist.json
+bun config/skills/specialists-creator/scripts/validate-specialist.ts config/specialists/my-specialist.specialist.json
 
 # 7. List to confirm discovery
 specialists list
@@ -702,4 +899,42 @@ specialists list
 specialists run my-specialist --prompt "ping" --no-beads
 ```
 
-If you need the underlying implementation, read `skills/specialist-author/scripts/validate-specialist.ts`. It is a thin Bun/TypeScript wrapper over `parseSpecialist()` from `src/specialist/schema.ts`, which keeps the helper cross-platform for Windows, macOS, and Linux.
+If you need the underlying implementation, read `config/skills/specialists-creator/scripts/validate-specialist.ts`. It is a thin Bun/TypeScript wrapper over `parseSpecialist()` from `src/specialist/schema.ts`, which keeps the helper cross-platform for Windows, macOS, and Linux.
+
+---
+
+## Script-Class vs Package-Class Runtime
+
+Two runtime classes exist:
+
+- **Package-class**: `sp run` → `runner.ts` → `session.ts`
+- **Script-class**: `sp script` / `sp serve` → `script-runner.ts`
+
+| Runner | Injected into system prompt |
+|--------|----------------------------|
+| Package-class | `prompt.system` + Specialist Run Context + caveman output style + GitNexus mandate (if `.gitnexus` exists) + `STATIC_WORKFLOW_RULES_BLOCK` + memory injection + mandatory rules + skills inheritance + output contract + reviewer patch retrieval (reviewer reuse only) |
+| Script-class | `prompt.system` only |
+
+Pi flags:
+
+| Runner | Pi flags |
+|--------|----------|
+| Package-class | `--no-extensions`, then re-enable quality-gates/service-skills/caveman/gitnexus/serena |
+| Script-class | `--no-extensions --no-tools --offline --no-context-files --no-prompt-templates --no-themes` and `--no-skills` when `skills.paths` is empty |
+
+Settings that silently do nothing on script-class:
+
+- `mandatory_rules` (all fields)
+- beads injection
+- GitNexus mandate
+- memory injection
+- output contract auto-generation
+
+Per-runner default for `prompt.system_prompt_mode`:
+
+- Package-class: `append`
+- Script-class: `replace`
+
+> **Script-class warning:** `mandatory_rules` never reaches script-class. If spec must rely on rule sets, it must run package-class.
+
+---
