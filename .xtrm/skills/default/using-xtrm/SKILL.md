@@ -27,6 +27,25 @@ bd update <id> --claim            # claim before any edit
 
 ---
 
+## Current xt Command Surfaces
+
+Use these command surfaces when the task is operational rather than code-editing:
+
+| Need | Command | Notes |
+|------|---------|-------|
+| Refresh xtrm-managed skills/hooks/reports in one repo | `xt update --apply` | Default `xt update` is dry-run; `--apply` writes. Also reports bd/GitNexus maintenance and applies the bd auto-stage patch. |
+| Refresh many repos under a root | `xt update --apply --root <dir>` | Discovers repos with `.xtrm/registry.json`; failures are reported per repo. |
+| Sweep standard local fleet | `xt update --all-repos` then `xt update --apply --all-repos` | Scans `~/dev` + `~/projects`; dry-run first. Apply patches and commits each changed repo. |
+| Cut a release | `xt release prepare --patch` then `xt release publish` | `prepare` drafts from xt reports; `publish` tags/pushes. If `prepare` fails on changelog script compatibility, check specialists `unitAI-dnmcg` state and use the manual fallback in `/releasing`. |
+| Close a session report | update latest same-day `.xtrm/reports/<date>-*.md` | `session-close-report` prefers one same-day SSOT handoff; do not create duplicate reports unless asked. |
+
+
+### Worktree dependency setup
+
+`xt claude` / `xt pi` sessions use clean git worktrees. Git does not copy ignored dependency artifacts such as `node_modules/`, `.venv/`, build caches, or generated outputs. If a repo's lint/tests need those files, run the repo's normal bootstrap inside the worktree (`make bootstrap`, `just setup`, `npm ci`, `uv sync`, etc.). Do not track dependency directories to make worktrees pass.
+
+---
+
 ## Trigger Patterns
 
 | Situation | Action |
@@ -37,6 +56,9 @@ bd update <id> --claim            # claim before any edit
 | Unfamiliar area of code | `gitnexus_query({query: "concept"})` before opening any file |
 | About to edit a symbol | `gitnexus_impact({target: "name", direction: "upstream"})` |
 | Before `git commit` | `gitnexus_detect_changes({scope: "staged"})` to verify scope |
+| About to `bd create` a bead for a specialist dispatch | Add `--parent <bead-it-services>` (nests `.1`, recursive `.1.1`) + title `<role>: <task>` — never a loose top-level bead |
+| About to dispatch a specialist (`sp run`) | `bd state <id> contract` — if `draft` or unset, promote first (explore + rewrite full contract + `bd set-state <id> contract=ready`); never dispatch against a draft |
+| Just capturing an idea for later, not working it now | `bd create --labels contract:draft` with a real PROBLEM + rough SCOPE, everything else `TBD` — never a one-liner |
 | Reading code | `get_symbols_overview` → `find_symbol` — never read whole files |
 | Task is tests | use /test-planning
 | Task is docs updates | use /sync-docs

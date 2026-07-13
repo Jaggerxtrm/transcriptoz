@@ -18,3 +18,7 @@
 .worktrees/transcriptoz-b1q/transcriptoz-b1q-transcriber/
 # bd worktree
 .worktrees/transcriptoz-noh/transcriptoz-noh-transcriber/
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key
+.beads/proxieddb/

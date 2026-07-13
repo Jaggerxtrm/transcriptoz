@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Write, AskUserQuestion, WebSearch
 homepage: https://github.com/mvanhorn/last30days-skill
 repository: https://github.com/mvanhorn/last30days-skill
 author: mvanhorn
-license: MITdescription: "Deep research engine covering the last 30 days across 10+ sources - Reddit, X/Twitter, YouTube, TikTok, Instagram, Hacker News, Polymarket, and the web. AI synthesizes findings into grounded, cited reports."
+license: MIT
 version: "2.9.7"
 user-invocable: true
 metadata:
