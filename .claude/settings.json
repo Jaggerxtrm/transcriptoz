@@ -59,7 +59,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.xtrm/skills/default/service-skills/scripts/cataloger.py\""
+            "command": "python3 \"$HOME/.xtrm/skills/default/service-skills/scripts/cataloger.py\""
           },
           {
             "type": "command",
@@ -110,7 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.xtrm/skills/default/service-skills/scripts/skill_activator.py\""
+            "command": "python3 \"$HOME/.xtrm/skills/default/service-skills/scripts/skill_activator.py\""
           }
         ]
       }
@@ -156,7 +156,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.xtrm/skills/default/service-skills/scripts/drift_detector.py\" check-hook",
+            "command": "python3 \"$HOME/.xtrm/skills/default/service-skills/scripts/drift_detector.py\" check-hook",
             "timeout": 10000
           }
         ]
