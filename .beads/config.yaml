@@ -1,7 +1,9 @@
 export:
-  git-add: false
+    git-add: false
 dolt:
-  port: 3308
-  auto-start: false
-  shared-server: true
+    port: 3308
+    auto-start: false
+    shared-server: true
 export.git-add: false
+sync:
+    remote: "git+ssh://git@github.com/Jaggerxtrm/transcriptoz.git"
