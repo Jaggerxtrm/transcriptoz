@@ -1,8 +1,6 @@
 {
   "extensions": [],
-  "packages": [
-    "npm:@jaggerxtrm/pi-extensions"
-  ],
+  "packages": [],
   "serena": {
     "blockedTools": []
   }
