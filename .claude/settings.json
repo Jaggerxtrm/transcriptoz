@@ -45,11 +45,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/home/dawid/dev/transcriptoz/.xtrm/hooks/project-memory.mjs\""
+            "command": "node \"/home/dawid/projects/transcriptoz/.xtrm/hooks/project-memory.mjs\""
           },
           {
             "type": "command",
-            "command": "node \"/home/dawid/dev/transcriptoz/.xtrm/hooks/worktree-reap-sweep.mjs\"",
+            "command": "node \"/home/dawid/projects/transcriptoz/.xtrm/hooks/worktree-reap-sweep.mjs\"",
             "timeout": 5000
           }
         ]
@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/home/dawid/dev/transcriptoz/.xtrm/hooks/specialists-agent-guard.mjs\"",
+            "command": "node \"/home/dawid/projects/transcriptoz/.xtrm/hooks/specialists-agent-guard.mjs\"",
             "timeout": 2000
           }
         ]
@@ -73,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/home/dawid/dev/transcriptoz/.xtrm/hooks/beads-claim-sync.mjs\"",
+            "command": "node \"/home/dawid/projects/transcriptoz/.xtrm/hooks/beads-claim-sync.mjs\"",
             "timeout": 5000
           }
         ]
@@ -84,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/home/dawid/dev/transcriptoz/.xtrm/hooks/inbox-reminder-stop.mjs\"",
+            "command": "node \"/home/dawid/projects/transcriptoz/.xtrm/hooks/inbox-reminder-stop.mjs\"",
             "timeout": 5000
           }
         ]
